@@ -1,53 +1,58 @@
-import todo from "./core.ts"; // importa o sistema de tarefas
+import todo from "./core.ts"; // importa sistema de tarefas
+import path from "path"; // importa utilitário de caminhos
+
+const PUBLIC_DIR = "./public"; // pasta pública dos arquivos estáticos
 
 const server = Bun.serve({
   port: 3000, // porta do servidor
 
   routes: {
 
-    "/": new Response(Bun.file("./public/index.html")), // rota principal
-
-    "/api/todo": { // rota da api de tarefas
+    "/api/todo": { // rota principal da api todo
 
       GET: async () => { // pega todos os itens
-        const items = await todo.getItems() // busca os itens
-        return Response.json(items) // retorna em json
+        const items = await todo.getItems(); // busca itens
+        return Response.json(items); // retorna json
       },
 
-      POST: async (req) => { // adiciona item novo
-        const data = await req.json() as any; // pega os dados enviados
-        const item = data.item || null; // pega o item
+      POST: async (req) => { // adiciona item
+        const data = await req.json() as any; // pega body da requisição
+        const item = data.item || null; // pega item enviado
 
-        if (!item) // verifica se veio item
+        if (!item) { // verifica se veio item
           return Response.json(
-            'Por favor, forneça um item para adicionar.',
+            "Por favor, forneça um item para adicionar.",
             { status: 400 } // retorna erro
           );
+        }
 
         await todo.addItem(item); // adiciona item
-        return Response.json(data); // retorna os dados
+
+        return Response.json(data); // retorna dados enviados
       },
     },
 
-    "/api/todo/:index": { // rota usando index
+    "/api/todo/:index": { // rota usando índice
 
       PUT: async (req) => { // atualiza item
-        const index = parseInt(req.params.index); // pega index da url
+        const index = parseInt(req.params.index); // pega índice da url
 
-        if (isNaN(index)) // verifica se é número
+        if (isNaN(index)) { // verifica se é número
           return Response.json(
-            'Índice inválido. um número inteiro é esperado.',
+            "Índice inválido. um número inteiro é esperado.",
             { status: 400 } // retorna erro
           );
+        }
 
-        const data = await req.json() as any; // pega os dados
+        const data = await req.json() as any; // pega body
         const newItem = data.newItem || null; // pega novo item
 
-        if (!newItem) // verifica se veio item novo
+        if (!newItem) { // verifica se veio item novo
           return Response.json(
-            'Por favor, forneça um novo item para atualizar.',
-            { status: 400 } // erro caso vazio
+            "Por favor, forneça um novo item para atualizar.",
+            { status: 400 } // retorna erro
           );
+        }
 
         try {
           await todo.updateItem(index, newItem); // atualiza item
@@ -66,13 +71,14 @@ const server = Bun.serve({
       },
 
       DELETE: async (req) => { // remove item
-        const index = parseInt(req.params.index); // pega index
+        const index = parseInt(req.params.index); // pega índice
 
-        if (isNaN(index)) // verifica index
+        if (isNaN(index)) { // verifica se índice é válido
           return Response.json(
-            'Índice inválido.',
+            "Índice inválido.",
             { status: 400 } // erro
           );
+        }
 
         try {
           await todo.removeItem(index); // remove item
@@ -90,64 +96,41 @@ const server = Bun.serve({
         }
       },
     },
-
-    // EXEMPLO BÁSICO
-
-    "/api/exemplo": {
-
-      GET: () => { // exemplo get
-        return new Response(`Esse é o exemplo: ${Date.now()}`) // retorna timestamp
-      },
-
-      POST: async (req) => { // exemplo post
-        const data = await req.json() as any; // pega dados
-        data.recebidoEm = new Date().toLocaleDateString("pt-BR"); // adiciona data
-        return Response.json(data); // retorna dados
-      },
-    },
-
-    "/api/exemplo/:id": { // rota exemplo com id
-
-      PUT: async (req, params) => { // atualiza tudo
-        const { id } = req.params; // pega id
-        const data = await req.json() as any; // pega dados
-
-        data.id = id; // adiciona id
-        data.recebidoEm = new Date().toLocaleDateString("pt-BR"); // adiciona data
-
-        return Response.json(data); // retorna resposta
-      },
-
-      PATCH: async (req, params) => { // atualiza parcialmente
-        const { id } = req.params; // pega id
-        const data = await req.json() as any; // pega dados
-
-        data.chavesAtualizadas = Object.keys(data); // mostra oq mudou
-        data.id = id; // adiciona id
-        data.atualizadoEm = new Date().toLocaleDateString("pt-BR"); // data update
-
-        return Response.json(data); // retorna dados
-      },
-
-      DELETE: (req, params) => { // deleta recurso
-        const { id } = req.params; // pega id
-
-        return new Response(
-          `Recurso com id ${id} deletado`,
-          { status: 200 } // sucesso
-        );
-      }
-    }
-
-    // FIM DO EXEMPLO BÁSICO
   },
 
-  async fetch(req) { // fallback caso rota nao exista
+  async fetch(req) { // fallback para arquivos estáticos
+    const url = new URL(req.url); // pega url da requisição
+
+    const path =
+      (url.pathname === "/") // verifica se é rota principal
+        ? `./public/index.html` // carrega index
+        : `./public${url.pathname}`; // carrega arquivo da pasta public
+
+    const file = Bun.file(path); // pega arquivo
+
+    if (await file.exists()) { // verifica se arquivo existe
+
+      const headers = new Headers(); // cria headers
+
+      headers.set(
+        "Cache-Control",
+        "public, max-age=3600"
+      ); // adiciona cache de 1 hora
+
+      return new Response(file, {
+        headers // retorna arquivo com cache
+      });
+    }
+
     return new Response(
-      `Not Found`,
-      { status: 404 } // erro 404
+      "Not Found",
+      { status: 404 } // retorna 404 caso não exista
     );
   },
 });
 
-console.log(`Server running at http://localhost:${server.port}`); // mostra servidor rodando
+console.log(
+  `Server running at http://localhost:${server.port}`
+); // mostra servidor rodando
+
+
